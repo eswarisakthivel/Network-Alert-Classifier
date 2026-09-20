@@ -1,0 +1,25 @@
+/* Custom Glows & Gate Animations */
+.active-wire {
+  stroke: #10b981 !important;
+  stroke-width: 3px;
+  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.6));
+  transition: all 0.3s ease;
+}
+
+.inactive-wire {
+  stroke: #334155 !important;
+  stroke-width: 1.5px;
+  transition: all 0.3s ease;
+}
+
+.kmap-cell-active {
+  background-color: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+  font-weight: bold;
+}
+
+.kmap-cell-selected {
+  outline: 2px solid #38bdf8;
+  outline-offset: -2px;
+}

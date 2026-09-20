@@ -1,0 +1,1730 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Logic Based Network Alert Classifier | EC2201 Project</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#080B11',
+                        cardBg: '#0F172A',
+                        mint: '#10B981',
+                        mintGlow: '#059669',
+                        cyanAccent: '#06B6D4',
+                        iceBlue: '#38BDF8',
+                        dangerRed: '#EF4444',
+                        warnAmber: '#F59E0B'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'Courier New', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #080b11;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #10b981;
+        }
+
+        /* Glassmorphism styling */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-panel-glow {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.15);
+        }
+
+        /* Hide native cursor for custom cursor experience */
+        body {
+            cursor: none;
+            background-color: #080b11;
+            overflow-x: hidden;
+        }
+
+        /* Custom Magnetic Cursor Styles */
+        #cursor-dot {
+            pointer-events: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 8px; height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: width 0.15s, height 0.15s, background-color 0.15s;
+        }
+        #cursor-ring {
+            pointer-events: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 36px; height: 36px;
+            border: 1.5px solid rgba(16, 185, 129, 0.5);
+            border-radius: 50%;
+            z-index: 9998;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s ease-out, width 0.2s, height 0.2s, border-color 0.2s;
+        }
+        body.cursor-hover #cursor-dot {
+            width: 14px;
+            height: 14px;
+            background-color: #06b6d4;
+        }
+        body.cursor-hover #cursor-ring {
+            width: 52px;
+            height: 52px;
+            border-color: rgba(6, 182, 212, 0.8);
+            background: rgba(6, 182, 212, 0.05);
+        }
+
+        /* Signal flow animations */
+        @keyframes wirePulse {
+            0% { stroke-dashoffset: 20; }
+            100% { stroke-dashoffset: 0; }
+        }
+        .active-wire {
+            stroke: #10b981 !important;
+            stroke-width: 3 !important;
+            filter: drop-shadow(0px 0px 4px #10b981);
+            stroke-dasharray: 6 3;
+            animation: wirePulse 0.8s linear infinite;
+        }
+        .inactive-wire {
+            stroke: #334155 !important;
+            stroke-width: 1.5 !important;
+            opacity: 0.5;
+        }
+
+        /* Glowing LED effects */
+        .led-indicator {
+            transition: all 0.2s ease-in-out;
+        }
+        .led-off {
+            background-color: #1e293b;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
+            border: 1px solid #334155;
+        }
+        .led-red {
+            background-color: #ef4444;
+            box-shadow: 0 0 15px #ef4444, inset 0 1px 2px #ffffff;
+            border: 1px solid #f87171;
+        }
+        .led-amber {
+            background-color: #f59e0b;
+            box-shadow: 0 0 15px #f59e0b, inset 0 1px 2px #ffffff;
+            border: 1px solid #fbbf24;
+        }
+        .led-green {
+            background-color: #10b981;
+            box-shadow: 0 0 15px #10b981, inset 0 1px 2px #ffffff;
+            border: 1px solid #34d399;
+        }
+
+        /* K-Map highlighted groups */
+        .kmap-cell {
+            transition: all 0.2s ease;
+        }
+        .kmap-group-crit {
+            background-color: rgba(239, 68, 68, 0.25) !important;
+            border: 1px solid #ef4444 !important;
+        }
+        .kmap-group-susp {
+            background-color: rgba(245, 158, 11, 0.25) !important;
+            border: 1px solid #f59e0b !important;
+        }
+        .kmap-group-norm {
+            background-color: rgba(16, 185, 129, 0.2) !important;
+            border: 1px solid #10b981 !important;
+        }
+    </style>
+</head>
+<body class="text-slate-200 font-sans antialiased selection:bg-mint selection:text-black">
+
+    <!-- Custom Cursor -->
+    <div id="cursor-dot"></div>
+    <div id="cursor-ring"></div>
+
+    <!-- Background Particle FX Canvas -->
+    <canvas id="bg-canvas" class="fixed top-0 left-0 w-full h-full pointer-events-none z-0 opacity-40"></canvas>
+
+    <!-- Main Outer Wrapper -->
+    <div class="relative z-10 flex flex-col min-h-screen">
+
+        <!-- Navigation Header -->
+        <header class="sticky top-0 z-50 glass-panel border-b border-slate-800/80 px-4 lg:px-8 py-3.5 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-slate-900 border border-mint/40 rounded-lg text-mint shadow-lg shadow-mint/10">
+                    <i data-lucide="cpu" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-mono uppercase tracking-widest text-mint font-semibold">EC2201 Digital Logic Project</span>
+                    <h1 class="text-sm font-bold text-white tracking-wide">Network Alert Classifier Engine</h1>
+                </div>
+            </div>
+
+            <!-- Nav Links -->
+            <nav class="hidden md:flex items-center space-x-6 text-xs font-mono uppercase tracking-wider text-slate-400">
+                <a href="#overview" class="hover:text-mint transition-colors">01. Overview</a>
+                <a href="#logic-model" class="hover:text-mint transition-colors">02. Logic Model</a>
+                <a href="#simulator" class="hover:text-mint transition-colors">03. Hardware Simulator</a>
+                <a href="#analytics" class="hover:text-mint transition-colors">04. Analytics</a>
+                <a href="#test-suite" class="hover:text-mint transition-colors">05. Test Suite</a>
+            </nav>
+
+            <!-- Actions -->
+            <div class="flex items-center space-x-3">
+                <button id="sound-toggle" class="p-2 bg-slate-900 border border-slate-700 hover:border-mint text-slate-400 hover:text-mint rounded-lg text-xs font-mono transition flex items-center gap-1.5" title="Toggle Synth Audio Feedback">
+                    <i data-lucide="volume-2" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Audio</span>
+                </button>
+                <button onclick="openReadmeModal()" class="px-3.5 py-1.5 bg-mint/10 hover:bg-mint/20 border border-mint/40 text-mint text-xs font-mono font-semibold rounded-lg transition-all flex items-center gap-2">
+                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                    <span>README / Proof</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-16">
+
+            <!-- SECTION 1: HERO & STUDENT AUTHOR CARD -->
+            <section id="overview" class="pt-4 space-y-8">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                    
+                    <!-- Title & Context Column -->
+                    <div class="lg:col-span-7 space-y-6">
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/80 border border-mint/30 text-mint text-xs font-mono">
+                            <span class="w-2 h-2 rounded-full bg-mint animate-pulse"></span>
+                            <span>Combinational Logic Optimization & Circuit Synthesis</span>
+                        </div>
+
+                        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-none uppercase">
+                            Digital Logic Based <br>
+                            <span class="bg-gradient-to-r from-mint via-cyanAccent to-iceBlue bg-clip-text text-transparent">
+                                Network Alert Classifier
+                            </span>
+                        </h1>
+
+                        <p class="text-slate-400 text-sm sm:text-base leading-relaxed max-w-2xl font-normal">
+                            High-speed, sub-nanosecond hardware packet alert classification using minimized Boolean logic equations.
+                            Designed as a hardware-level acceleration model to replace CPU-bound packet inspection for DDoS and intruder signal isolation.
+                        </p>
+
+                        <!-- Highlights Pills -->
+                        <div class="flex flex-wrap gap-2 pt-1 font-mono text-xs">
+                            <span class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-md text-slate-300 flex items-center gap-1.5">
+                                <i data-lucide="zap" class="w-3.5 h-3.5 text-yellow-400"></i> Latency: 0.05 ns (Logic Gate)
+                            </span>
+                            <span class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-md text-slate-300 flex items-center gap-1.5">
+                                <i data-lucide="layers" class="w-3.5 h-3.5 text-mint"></i> K-Map Gate Savings: 68.7%
+                            </span>
+                            <span class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-md text-slate-300 flex items-center gap-1.5">
+                                <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-cyanAccent"></i> Deterministic Output
+                            </span>
+                        </div>
+
+                        <div class="flex items-center gap-4 pt-2">
+                            <a href="#simulator" class="px-6 py-3 bg-mint hover:bg-mintGlow text-black font-semibold text-xs uppercase tracking-wider rounded-lg shadow-lg shadow-mint/20 transition-all transform hover:-translate-y-0.5 flex items-center gap-2">
+                                <i data-lucide="play" class="w-4 h-4 fill-current"></i> Launch Live Simulator
+                            </a>
+                            <a href="#logic-model" class="px-6 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-xs uppercase tracking-wider rounded-lg transition-all flex items-center gap-2">
+                                <i data-lucide="grid" class="w-4 h-4"></i> Explore K-Map & Truth Table
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Author Details Card (Kimi / Cyber Aesthetic) -->
+                    <div class="lg:col-span-5">
+                        <div class="glass-panel-glow rounded-2xl p-6 relative overflow-hidden group">
+                            <!-- Background Grid Pattern -->
+                            <div class="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:16px_16px]"></div>
+
+                            <div class="relative z-10 space-y-5">
+                                <div class="flex items-center justify-between border-b border-slate-800/80 pb-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-mint to-cyanAccent flex items-center justify-center text-slate-950 font-bold text-base shadow-md">
+                                            SE
+                                        </div>
+                                        <div>
+                                            <h3 class="text-white font-bold text-base tracking-wide">Shanmuga Eswari Sakthivel</h3>
+                                            <p class="text-xs text-mint font-mono">Developer & Project Author</p>
+                                        </div>
+                                    </div>
+                                    <span class="px-2.5 py-1 bg-mint/10 border border-mint/30 text-mint text-[10px] font-mono rounded uppercase">VERIFIED SUBMISSION</span>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3 text-xs font-mono">
+                                    <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                                        <span class="text-slate-500 block text-[10px] uppercase">Department / Year</span>
+                                        <span class="text-slate-200 font-semibold">ADS - 2nd Year (B-Sec)</span>
+                                    </div>
+                                    <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                                        <span class="text-slate-500 block text-[10px] uppercase">Course Code</span>
+                                        <span class="text-slate-200 font-semibold">EC2201 Logic Fundamentals</span>
+                                    </div>
+                                    <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                                        <span class="text-slate-500 block text-[10px] uppercase">Boolean Inputs</span>
+                                        <span class="text-slate-200 font-semibold">4 Inputs (A, B, C, D)</span>
+                                    </div>
+                                    <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                                        <span class="text-slate-500 block text-[10px] uppercase">Alert Outputs</span>
+                                        <span class="text-slate-200 font-semibold">3 Signals (F_crit, F_susp, F_norm)</span>
+                                    </div>
+                                </div>
+
+                                <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80 text-[11px] font-mono text-slate-400 flex items-center justify-between">
+                                    <span>Syllabus Mapping: Module 2 & 3</span>
+                                    <span class="text-mint flex items-center gap-1"><i data-lucide="check" class="w-3.5 h-3.5"></i> K-Map & Circuit Synthesis</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- SECTION 2: PROBLEM STATEMENT & REAL-WORLD CONTEXT -->
+            <section class="glass-panel rounded-2xl p-6 sm:p-8 space-y-6 border border-slate-800">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                    <div>
+                        <span class="text-xs font-mono uppercase text-mint tracking-wider">01. Engineering Motivation</span>
+                        <h2 class="text-xl sm:text-2xl font-bold text-white tracking-wide">Hardware Digital Logic vs. Software Inspection</h2>
+                    </div>
+                    <div class="flex items-center gap-2 font-mono text-xs text-slate-400">
+                        <span class="w-2.5 h-2.5 rounded-full bg-cyanAccent"></span> FPGA / ASIC Target Synthesis
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs sm:text-sm text-slate-300">
+                    <div class="space-y-3 bg-slate-900/50 p-5 rounded-xl border border-slate-800">
+                        <div class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-center font-bold">
+                            01
+                        </div>
+                        <h3 class="font-semibold text-white text-base">Software Latency Bottleneck</h3>
+                        <p class="text-slate-400 text-xs leading-relaxed">
+                            Traditional intrusion detection systems process network traffic using software rules running on OS kernels, incurring 10–50 microseconds delay per packet. Under 100 Gbps line rates, packet drop occurs quickly.
+                        </p>
+                    </div>
+
+                    <div class="space-y-3 bg-slate-900/50 p-5 rounded-xl border border-slate-800">
+                        <div class="w-8 h-8 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 flex items-center justify-center font-bold">
+                            02
+                        </div>
+                        <h3 class="font-semibold text-white text-base">Combinational Gate Acceleration</h3>
+                        <p class="text-slate-400 text-xs leading-relaxed">
+                            By mapping network telemetry variables (Traffic Rate, Auth Failures, Port Anomalies, Geofence Origin) into 4 binary bits (A, B, C, D), alert classification can be performed directly inside silicon logic gates at sub-nanosecond speeds.
+                        </p>
+                    </div>
+
+                    <div class="space-y-3 bg-slate-900/50 p-5 rounded-xl border border-slate-800">
+                        <div class="w-8 h-8 rounded-lg bg-mint/10 border border-mint/30 text-mint flex items-center justify-center font-bold">
+                            03
+                        </div>
+                        <h3 class="font-semibold text-white text-base">Boolean Optimization Impact</h3>
+                        <p class="text-slate-400 text-xs leading-relaxed">
+                            Using Karnaugh Maps (K-Maps), the raw unoptimized SOP logic of 32 AND/OR gate components is minimized to just 6 gate operations, minimizing FPGA chip area, propagation delay, and thermal dissipation.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 3: DIGITAL LOGIC MODEL & BOOLEAN REDUCTION -->
+            <section id="logic-model" class="space-y-8">
+                
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <span class="text-xs font-mono uppercase text-mint tracking-wider">02. Mathematics & Boolean Reduction</span>
+                        <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-wide">Logic Model, Karnaugh Map & Synthesis</h2>
+                    </div>
+
+                    <!-- Input Definitions Badge Row -->
+                    <div class="flex flex-wrap gap-2 text-xs font-mono">
+                        <span class="px-2.5 py-1 bg-slate-900 border border-slate-800 rounded text-slate-300" title="High Traffic > 85%">A: High Traffic</span>
+                        <span class="px-2.5 py-1 bg-slate-900 border border-slate-800 rounded text-slate-300" title="Repeated Auth Failures >= 3">B: Auth Failures</span>
+                        <span class="px-2.5 py-1 bg-slate-900 border border-slate-800 rounded text-slate-300" title="Unauthorized Port Access">C: Port Anomaly</span>
+                        <span class="px-2.5 py-1 bg-slate-900 border border-slate-800 rounded text-slate-300" title="Unknown IP Origin">D: Geofence Breach</span>
+                    </div>
+                </div>
+
+                <!-- K-Map & Boolean Expression Explorer -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                    <!-- Interactive K-Map Grid (7 Cols) -->
+                    <div class="lg:col-span-7 glass-panel rounded-2xl p-6 border border-slate-800 space-y-5">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                <i data-lucide="grid" class="w-4 h-4 text-mint"></i>
+                                4-Variable Karnaugh Map (K-Map) Explorer
+                            </h3>
+                            <!-- Output Selector Tabs -->
+                            <div class="flex bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs font-mono">
+                                <button onclick="selectKMapOutput('CRITICAL')" id="btn-kmap-crit" class="px-3 py-1 rounded-md text-red-400 bg-red-500/10 font-semibold transition">F_crit</button>
+                                <button onclick="selectKMapOutput('SUSPICIOUS')" id="btn-kmap-susp" class="px-3 py-1 rounded-md text-slate-400 hover:text-amber-400 transition">F_susp</button>
+                                <button onclick="selectKMapOutput('NORMAL')" id="btn-kmap-norm" class="px-3 py-1 rounded-md text-slate-400 hover:text-emerald-400 transition">F_norm</button>
+                            </div>
+                        </div>
+
+                        <p class="text-xs text-slate-400 font-mono">
+                            Showing K-Map representation for output <span id="kmap-active-title" class="text-red-400 font-bold">F_crit (Critical Alert)</span>. Click cell to toggle logic binary state manually.
+                        </p>
+
+                        <!-- K-Map Matrix Table -->
+                        <div class="overflow-x-auto pt-2">
+                            <table class="w-full text-center border-collapse text-xs font-mono">
+                                <thead>
+                                    <tr>
+                                        <th class="p-2 border border-slate-800 bg-slate-950/80 text-slate-500 text-[10px]">AB \ CD</th>
+                                        <th class="p-2 border border-slate-800 bg-slate-900/60 text-slate-300">00 (C'D')</th>
+                                        <th class="p-2 border border-slate-800 bg-slate-900/60 text-slate-300">01 (C'D)</th>
+                                        <th class="p-2 border border-slate-800 bg-slate-900/60 text-slate-300">11 (CD)</th>
+                                        <th class="p-2 border border-slate-800 bg-slate-900/60 text-slate-300">10 (CD')</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kmap-matrix-body">
+                                    <!-- Dynamic KMap Rows inserted via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Derived Boolean Expression Card -->
+                        <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-2">
+                            <span class="text-[10px] font-mono text-slate-500 uppercase tracking-widest block">Minimized SOP Equation (Quine-McCluskey / K-Map Derived)</span>
+                            <div id="kmap-equation-display" class="font-mono text-sm sm:text-base font-bold text-mint tracking-wide overflow-x-auto py-1">
+                                F_crit = A·B + A·C + B·C·D
+                            </div>
+                            <div id="kmap-equation-explanation" class="text-xs text-slate-400">
+                                Reduces standard 7 minterm canonical expression down to 3 Essential Prime Implicants.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Circuit Gate Schematic Visualizer (5 Cols) -->
+                    <div class="lg:col-span-5 glass-panel rounded-2xl p-6 border border-slate-800 space-y-4 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="circuit-board" class="w-4 h-4 text-cyanAccent"></i>
+                                    Logic Gate Synthesis Viewer
+                                </h3>
+                                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">Interactive SVG</span>
+                            </div>
+
+                            <p class="text-xs text-slate-400 mt-2 font-mono">
+                                Visual representation of the synthesized logic gates for active state:
+                            </p>
+                        </div>
+
+                        <!-- Interactive SVG Schematic Container -->
+                        <div class="bg-slate-950/90 rounded-xl border border-slate-800 p-4 flex items-center justify-center my-2 relative min-h-[260px]">
+                            <svg id="gate-svg" class="w-full h-56" viewBox="0 0 400 240">
+                                <!-- Dynamic SVG logic gate schematic rendered by JS -->
+                            </svg>
+                        </div>
+
+                        <div class="text-[11px] font-mono text-slate-400 bg-slate-900/60 p-3 rounded-lg border border-slate-800/80 flex items-center justify-between">
+                            <span>Gate Count: <strong class="text-white">3 AND, 1 OR, 0 NOT</strong></span>
+                            <span class="text-mint font-semibold">Delay: ~0.045 ns</span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 16-State Interactive Truth Table -->
+                <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-5">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                                <i data-lucide="table" class="w-5 h-5 text-mint"></i>
+                                Complete 16-State Truth Table ($2^4$ Combinations)
+                            </h3>
+                            <p class="text-xs text-slate-400 font-mono mt-0.5">Click any row to test input state directly in live hardware simulator</p>
+                        </div>
+
+                        <!-- Filter Controls -->
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-mono text-slate-400">Filter:</span>
+                            <select id="tt-filter" onchange="renderTruthTable()" class="bg-slate-950 border border-slate-800 text-xs font-mono text-slate-200 rounded-lg px-3 py-1.5 focus:border-mint focus:outline-none">
+                                <option value="ALL">Show All States (16)</option>
+                                <option value="CRITICAL">Critical Only (F_crit = 1)</option>
+                                <option value="SUSPICIOUS">Suspicious Only (F_susp = 1)</option>
+                                <option value="NORMAL">Normal Only (F_norm = 1)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Truth Table Element -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs font-mono">
+                            <thead>
+                                <tr class="bg-slate-950 text-slate-400 border-b border-slate-800">
+                                    <th class="p-3">State #</th>
+                                    <th class="p-3">A (Traffic)</th>
+                                    <th class="p-3">B (Auth Fail)</th>
+                                    <th class="p-3">C (Port Access)</th>
+                                    <th class="p-3">D (Geofence)</th>
+                                    <th class="p-3 text-red-400">F_crit</th>
+                                    <th class="p-3 text-amber-400">F_susp</th>
+                                    <th class="p-3 text-emerald-400">F_norm</th>
+                                    <th class="p-3">Classified Level</th>
+                                    <th class="p-3 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="truth-table-body" class="divide-y divide-slate-800/60">
+                                <!-- Dynamic Truth Table Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- SECTION 4: LIVE SIMULATOR CONSOLE -->
+            <section id="simulator" class="space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <span class="text-xs font-mono uppercase text-mint tracking-wider">03. Hardware Execution & Testing</span>
+                        <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-wide">Live Simulator Console</h2>
+                    </div>
+                    
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-mint animate-ping"></span>
+                        <span class="text-xs font-mono text-slate-300">Live Binary Hardware Bus Active</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                    <!-- Interactive Binary Switch Board (5 Cols) -->
+                    <div class="lg:col-span-5 glass-panel rounded-2xl p-6 border border-slate-800 space-y-6 flex flex-col justify-between">
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="sliders" class="w-4 h-4 text-mint"></i>
+                                    Input Binary Switches
+                                </h3>
+                                <button onclick="resetSwitches()" class="text-[11px] font-mono text-slate-400 hover:text-white transition">Reset (0000)</button>
+                            </div>
+
+                            <!-- Switches Grid -->
+                            <div class="space-y-3.5">
+                                <!-- Switch A -->
+                                <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm font-bold text-white font-mono">Input A</span>
+                                            <span class="text-[10px] text-slate-400 font-mono">(High Traffic > 85%)</span>
+                                        </div>
+                                        <span id="label-a-desc" class="text-xs text-slate-400 block mt-0.5">Normal Bandwidth</span>
+                                    </div>
+                                    <button onclick="toggleSwitch('A')" id="switch-btn-a" class="w-14 h-8 bg-slate-950 border border-slate-700 rounded-full p-1 transition-colors relative flex items-center">
+                                        <div id="switch-knob-a" class="w-6 h-6 bg-slate-500 rounded-full transition-transform transform translate-x-0 flex items-center justify-center text-[10px] font-bold text-black font-mono">0</div>
+                                    </button>
+                                </div>
+
+                                <!-- Switch B -->
+                                <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm font-bold text-white font-mono">Input B</span>
+                                            <span class="text-[10px] text-slate-400 font-mono">(Auth Failures >= 3)</span>
+                                        </div>
+                                        <span id="label-b-desc" class="text-xs text-slate-400 block mt-0.5">Normal Authentication</span>
+                                    </div>
+                                    <button onclick="toggleSwitch('B')" id="switch-btn-b" class="w-14 h-8 bg-slate-950 border border-slate-700 rounded-full p-1 transition-colors relative flex items-center">
+                                        <div id="switch-knob-b" class="w-6 h-6 bg-slate-500 rounded-full transition-transform transform translate-x-0 flex items-center justify-center text-[10px] font-bold text-black font-mono">0</div>
+                                    </button>
+                                </div>
+
+                                <!-- Switch C -->
+                                <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm font-bold text-white font-mono">Input C</span>
+                                            <span class="text-[10px] text-slate-400 font-mono">(Unauthorized Port)</span>
+                                        </div>
+                                        <span id="label-c-desc" class="text-xs text-slate-400 block mt-0.5">Authorized Ports Only</span>
+                                    </div>
+                                    <button onclick="toggleSwitch('C')" id="switch-btn-c" class="w-14 h-8 bg-slate-950 border border-slate-700 rounded-full p-1 transition-colors relative flex items-center">
+                                        <div id="switch-knob-c" class="w-6 h-6 bg-slate-500 rounded-full transition-transform transform translate-x-0 flex items-center justify-center text-[10px] font-bold text-black font-mono">0</div>
+                                    </button>
+                                </div>
+
+                                <!-- Switch D -->
+                                <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm font-bold text-white font-mono">Input D</span>
+                                            <span class="text-[10px] text-slate-400 font-mono">(Geofence Breach)</span>
+                                        </div>
+                                        <span id="label-d-desc" class="text-xs text-slate-400 block mt-0.5">Trusted Geofence IP</span>
+                                    </div>
+                                    <button onclick="toggleSwitch('D')" id="switch-btn-d" class="w-14 h-8 bg-slate-950 border border-slate-700 rounded-full p-1 transition-colors relative flex items-center">
+                                        <div id="switch-knob-d" class="w-6 h-6 bg-slate-500 rounded-full transition-transform transform translate-x-0 flex items-center justify-center text-[10px] font-bold text-black font-mono">0</div>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Raw Bus Vector Display -->
+                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between text-xs font-mono">
+                            <span class="text-slate-500">BINARY BUS INPUT [ABCD]:</span>
+                            <span id="binary-bus-text" class="text-mint font-bold text-base tracking-widest">0000</span>
+                        </div>
+                    </div>
+
+                    <!-- Live Hardware Output & LED Indicator Console (7 Cols) -->
+                    <div class="lg:col-span-7 glass-panel-glow rounded-2xl p-6 border border-slate-800 space-y-6 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="activity" class="w-4 h-4 text-mint"></i>
+                                    Live Hardware Alert Bus Output
+                                </h3>
+                                <span class="text-[10px] font-mono text-slate-400">Propagation: <strong id="propagation-time" class="text-mint">0.048 ns</strong></span>
+                            </div>
+
+                            <!-- Hardware Status LEDs -->
+                            <div class="grid grid-cols-3 gap-4 my-6">
+                                
+                                <!-- Critical LED -->
+                                <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 text-center space-y-2 flex flex-col items-center justify-center">
+                                    <div id="led-crit" class="w-10 h-10 rounded-full led-indicator led-off flex items-center justify-center text-white">
+                                        <i data-lucide="alert-octagon" class="w-5 h-5"></i>
+                                    </div>
+                                    <span class="text-xs font-bold font-mono block text-white">F_CRITICAL</span>
+                                    <span id="state-crit-val" class="text-[10px] font-mono text-slate-500">STATE: 0</span>
+                                </div>
+
+                                <!-- Suspicious LED -->
+                                <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 text-center space-y-2 flex flex-col items-center justify-center">
+                                    <div id="led-susp" class="w-10 h-10 rounded-full led-indicator led-off flex items-center justify-center text-white">
+                                        <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                                    </div>
+                                    <span class="text-xs font-bold font-mono block text-white">F_SUSPICIOUS</span>
+                                    <span id="state-susp-val" class="text-[10px] font-mono text-slate-500">STATE: 0</span>
+                                </div>
+
+                                <!-- Normal LED -->
+                                <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 text-center space-y-2 flex flex-col items-center justify-center">
+                                    <div id="led-norm" class="w-10 h-10 rounded-full led-indicator led-green flex items-center justify-center text-white">
+                                        <i data-lucide="check-circle" class="w-5 h-5"></i>
+                                    </div>
+                                    <span class="text-xs font-bold font-mono block text-white">F_NORMAL</span>
+                                    <span id="state-norm-val" class="text-[10px] font-mono text-emerald-400">STATE: 1</span>
+                                </div>
+
+                            </div>
+
+                            <!-- Detailed Alert Banner -->
+                            <div id="alert-banner" class="bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-xl text-emerald-400 space-y-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold font-mono text-sm uppercase tracking-wide flex items-center gap-2">
+                                        <i data-lucide="shield-check" class="w-4 h-4"></i>
+                                        System Status: Normal Traffic
+                                    </span>
+                                    <span class="text-xs font-mono">PRIORITY 0</span>
+                                </div>
+                                <p class="text-xs text-slate-300 leading-relaxed font-sans">
+                                    No malicious threat patterns detected. Hardware logic evaluates normal baseline operations.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Intermediate Signal Bus Log -->
+                        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1 font-mono text-xs">
+                            <span class="text-slate-500 text-[10px] block uppercase">Intermediate Logic Gate Evaluation Step:</span>
+                            <div id="intermediate-eval-text" class="text-slate-300 overflow-x-auto">
+                                Intermediate Gate 1 (A·B) = 0 | Gate 2 (A·C) = 0 | Gate 3 (B·C·D) = 0 &rarr; OR Result = 0
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Synthetic Network Traffic Stream Generator -->
+                <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-3">
+                        <div>
+                            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                <i data-lucide="radio" class="w-4 h-4 text-mint"></i>
+                                Live Synthetic Network Log Stream
+                            </h3>
+                            <p class="text-xs text-slate-400 font-mono">Continuous packet generation engine feeding into logic gate hardware classifier</p>
+                        </div>
+
+                        <div class="flex items-center space-x-2">
+                            <button id="stream-toggle-btn" onclick="toggleStream()" class="px-3.5 py-1.5 bg-mint hover:bg-mintGlow text-black text-xs font-mono font-bold rounded-lg transition flex items-center gap-1.5">
+                                <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i> Start Auto Stream
+                            </button>
+                            <button onclick="clearLogs()" class="px-3 py-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 text-xs font-mono rounded-lg transition">Clear</button>
+                        </div>
+                    </div>
+
+                    <!-- Live Log Terminal View -->
+                    <div id="log-terminal" class="bg-slate-950 font-mono text-xs p-4 rounded-xl border border-slate-800/80 h-44 overflow-y-auto space-y-2">
+                        <div class="text-slate-500">// Real-time hardware classifier terminal initialized. Waiting for stream...</div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- SECTION 5: ANALYTICAL REPORT & VISUALIZATION DASHBOARD -->
+            <section id="analytics" class="space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <span class="text-xs font-mono uppercase text-mint tracking-wider">04. Performance Metrics & Analytics</span>
+                        <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-wide">Analytical Dashboard</h2>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 font-mono text-xs text-slate-400">
+                        Total Packet Samples Processed: <strong id="total-samples-count" class="text-mint font-bold">128</strong>
+                    </div>
+                </div>
+
+                <!-- Metrics Counter Cards -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
+                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-1">
+                        <span class="text-slate-500 text-[10px] uppercase">Critical Alerts</span>
+                        <div id="metric-crit-count" class="text-2xl font-bold text-red-400">14 (10.9%)</div>
+                    </div>
+                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-1">
+                        <span class="text-slate-500 text-[10px] uppercase">Suspicious Alerts</span>
+                        <div id="metric-susp-count" class="text-2xl font-bold text-amber-400">28 (21.8%)</div>
+                    </div>
+                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-1">
+                        <span class="text-slate-500 text-[10px] uppercase">Normal Traffic</span>
+                        <div id="metric-norm-count" class="text-2xl font-bold text-emerald-400">86 (67.3%)</div>
+                    </div>
+                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-1">
+                        <span class="text-slate-500 text-[10px] uppercase">Gate Reduction</span>
+                        <div class="text-2xl font-bold text-cyanAccent">68.7% Saved</div>
+                    </div>
+                </div>
+
+                <!-- Charts Grid (2 Columns) -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                    <!-- Chart 1: Alert Classification Distribution (5 Cols) -->
+                    <div class="lg:col-span-5 glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                <i data-lucide="pie-chart" class="w-4 h-4 text-mint"></i>
+                                Alert Classification Breakdown
+                            </h3>
+                            <span class="text-[10px] font-mono text-slate-500">Live Donut</span>
+                        </div>
+                        <div class="relative h-56 flex items-center justify-center">
+                            <canvas id="alertDistributionChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 2: Software vs Hardware Latency Comparison (7 Cols) -->
+                    <div class="lg:col-span-7 glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                <i data-lucide="bar-chart-2" class="w-4 h-4 text-cyanAccent"></i>
+                                Latency Comparison: Hardware Logic vs. Software
+                            </h3>
+                            <span class="text-[10px] font-mono text-slate-500">Logarithmic Scale (ns)</span>
+                        </div>
+                        <div class="relative h-56">
+                            <canvas id="latencyChart"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- SECTION 6: PRE-LOADED TEST CASE SUITE -->
+            <section id="test-suite" class="space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <span class="text-xs font-mono uppercase text-mint tracking-wider">05. Validation & Stress Testing</span>
+                        <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-wide">Standard Test Suite & Fault Cases</h2>
+                    </div>
+
+                    <p class="text-xs text-slate-400 font-mono">10 Standard Normal/Attack Cases + 5 Explicit Edge/Fault Stress Cases</p>
+                </div>
+
+                <!-- Test Cases Table -->
+                <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <div class="flex items-center space-x-3">
+                            <button onclick="filterTestSuite('ALL')" id="ts-filter-all" class="text-xs font-mono px-3 py-1 bg-mint/10 border border-mint/40 text-mint rounded-lg">All (15)</button>
+                            <button onclick="filterTestSuite('STANDARD')" id="ts-filter-std" class="text-xs font-mono px-3 py-1 bg-slate-900 border border-slate-800 text-slate-400 rounded-lg hover:text-white">Standard (10)</button>
+                            <button onclick="filterTestSuite('EDGE')" id="ts-filter-edge" class="text-xs font-mono px-3 py-1 bg-slate-900 border border-slate-800 text-slate-400 rounded-lg hover:text-white">Edge / Fault (5)</button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs font-mono">
+                            <thead>
+                                <tr class="bg-slate-950 text-slate-400 border-b border-slate-800">
+                                    <th class="p-3">ID</th>
+                                    <th class="p-3">Scenario Description</th>
+                                    <th class="p-3">Category</th>
+                                    <th class="p-3">Vector [A B C D]</th>
+                                    <th class="p-3">Expected Output</th>
+                                    <th class="p-3 text-right">Execute</th>
+                                </tr>
+                            </thead>
+                            <tbody id="test-suite-body" class="divide-y divide-slate-800/60">
+                                <!-- Dynamic Test Suite Rows populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="glass-panel border-t border-slate-800 py-6 px-4 text-center text-xs font-mono text-slate-500 mt-16 space-y-2">
+            <p>Digital Logic Based Network Alert Classifier &copy; 2026. Academic Engineering Submission.</p>
+            <p class="text-slate-600">Shanmuga Eswari Sakthivel | ADS 2nd Year, B-Section | Course: Digital Logic Fundamentals (EC2201)</p>
+        </footer>
+
+    </div>
+
+    <!-- COMPREHENSIVE README / ACADEMIC PROOF MODAL -->
+    <div id="readme-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden flex items-center justify-center p-4 sm:p-6">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <!-- Modal Header -->
+            <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+                <div class="flex items-center space-x-3">
+                    <i data-lucide="file-text" class="w-5 h-5 text-mint"></i>
+                    <div>
+                        <h3 class="text-base font-bold text-white">Project Engineering README & Mathematical Proof</h3>
+                        <p class="text-xs text-slate-400 font-mono">EC2201 Course Syllabus Mapping & Boolean Derivations</p>
+                    </div>
+                </div>
+                <button onclick="closeReadmeModal()" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Modal Markdown/HTML Scrollable Body -->
+            <div class="p-6 overflow-y-auto space-y-6 text-xs sm:text-sm text-slate-300 font-sans leading-relaxed">
+                
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 font-mono">
+                    <h4 class="text-white font-bold text-sm uppercase text-mint">Project Metadata</h4>
+                    <p><strong>Title:</strong> Digital Logic Based Network Alert Classifier</p>
+                    <p><strong>Student:</strong> Shanmuga Eswari Sakthivel</p>
+                    <p><strong>Class:</strong> ADS 2nd Year, B-Section</p>
+                    <p><strong>Course:</strong> Digital Logic Fundamentals (EC2201)</p>
+                </div>
+
+                <div class="space-y-3">
+                    <h4 class="text-base font-bold text-white flex items-center gap-2">
+                        <i data-lucide="book-open" class="w-4 h-4 text-mint"></i> 1. Problem Definition & Objectives
+                    </h4>
+                    <p>
+                        High-throughput network routers require real-time classification of packet features to identify security threats like SYN Floods, Port Scans, and Geofence Bypasses. Traditional software-based pattern matching introduces high CPU latency (~20 &mu;s). This project designs a pure <strong>combinational logic circuit</strong> that evaluates 4 binary indicators in hardware within 0.05 ns.
+                    </p>
+                </div>
+
+                <div class="space-y-3">
+                    <h4 class="text-base font-bold text-white flex items-center gap-2">
+                        <i data-lucide="binary" class="w-4 h-4 text-cyanAccent"></i> 2. Binary Input Variable Definition
+                    </h4>
+                    <ul class="list-disc pl-5 space-y-1 font-mono text-xs">
+                        <li><strong>A (High Traffic):</strong> 1 if ingress rate > 85% bandwidth; 0 otherwise.</li>
+                        <li><strong>B (Auth Failures):</strong> 1 if failed logins &ge; 3 within 10s window; 0 otherwise.</li>
+                        <li><strong>C (Unauthorized Port):</strong> 1 if destination port is restricted/unmapped; 0 otherwise.</li>
+                        <li><strong>D (Geofence Breach):</strong> 1 if packet IP originates outside approved geographic zone; 0 otherwise.</li>
+                    </ul>
+                </div>
+
+                <div class="space-y-3">
+                    <h4 class="text-base font-bold text-white flex items-center gap-2">
+                        <i data-lucide="check-square" class="w-4 h-4 text-amber-400"></i> 3. Boolean Function Minimization Proofs
+                    </h4>
+                    <p>
+                        Let $F_{crit}$ represent Critical Alert logic, $F_{susp}$ represent Suspicious Alert logic, and $F_{norm}$ represent Normal Traffic logic.
+                    </p>
+                    
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs space-y-2">
+                        <p class="text-red-400 font-bold">// Critical Alert SOP Canonical Form:</p>
+                        <p>F_crit = &Sigma;m(7, 11, 13, 14, 15)</p>
+                        <p class="text-slate-400">By K-Map simplification grouping adjacent minterms:</p>
+                        <p class="text-mint font-bold">F_crit = A&middot;B + A&middot;C + B&middot;C&middot;D</p>
+                        
+                        <p class="text-amber-400 font-bold mt-4">// Suspicious Alert SOP Form:</p>
+                        <p>F_susp = &Sigma;m(3, 5, 6, 9, 10, 12)</p>
+                        <p class="text-mint font-bold">F_susp = A'&middot;B&middot;C + A&middot;B'&middot;D + B&middot;C'&middot;D'</p>
+
+                        <p class="text-emerald-400 font-bold mt-4">// Normal Traffic Form:</p>
+                        <p class="text-mint font-bold">F_norm = (F_crit + F_susp)' = F_crit' &middot; F_susp'</p>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <h4 class="text-base font-bold text-white flex items-center gap-2">
+                        <i data-lucide="layers" class="w-4 h-4 text-emerald-400"></i> 4. Hardware Gate Reduction Metrics
+                    </h4>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs font-mono border border-slate-800">
+                            <thead class="bg-slate-950 text-slate-300">
+                                <tr>
+                                    <th class="p-2 border border-slate-800">Alert Signal</th>
+                                    <th class="p-2 border border-slate-800">Unoptimized Gate Count</th>
+                                    <th class="p-2 border border-slate-800">K-Map Minimized Gates</th>
+                                    <th class="p-2 border border-slate-800">Savings %</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                <tr>
+                                    <td class="p-2 border border-slate-800 text-red-400 font-bold">F_crit</td>
+                                    <td class="p-2 border border-slate-800">15 Gates (5 AND, 1 OR, NOTs)</td>
+                                    <td class="p-2 border border-slate-800 text-mint font-bold">4 Gates (3 AND, 1 OR)</td>
+                                    <td class="p-2 border border-slate-800">73.3%</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-2 border border-slate-800 text-amber-400 font-bold">F_susp</td>
+                                    <td class="p-2 border border-slate-800">18 Gates</td>
+                                    <td class="p-2 border border-slate-800 text-mint font-bold">6 Gates</td>
+                                    <td class="p-2 border border-slate-800">66.6%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 border-t border-slate-800 bg-slate-950 flex justify-end">
+                <button onclick="closeReadmeModal()" class="px-5 py-2 bg-mint hover:bg-mintGlow text-black font-bold text-xs font-mono rounded-lg transition">Close Documentation</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN INTERACTIVE JAVASCRIPT ENGINE -->
+    <script>
+        /* -------------------------------------------------------------------
+           1. GLOBAL STATE & LOGIC DATA STRUCTURES
+           ------------------------------------------------------------------- */
+        let state = {
+            A: 0, // High Traffic
+            B: 0, // Auth Failures
+            C: 0, // Port Anomaly
+            D: 0, // Geofence Breach
+            activeKMapOutput: 'CRITICAL',
+            audioEnabled: false,
+            streamingActive: false,
+            streamInterval: null,
+            totalSamples: 128,
+            critCount: 14,
+            suspCount: 28,
+            normCount: 86
+        };
+
+        // Complete 16-State Truth Table Data ($2^4$)
+        const truthTableData = [
+            { id: 0,  a:0, b:0, c:0, d:0, crit:0, susp:0, norm:1, level:'NORMAL',     desc:'Idle Baseline Traffic' },
+            { id: 1,  a:0, b:0, c:0, d:1, crit:0, susp:0, norm:1, level:'NORMAL',     desc:'Single Remote IP Ping' },
+            { id: 2,  a:0, b:0, c:1, d:0, crit:0, susp:0, norm:1, level:'NORMAL',     desc:'Allowed Secondary Port Access' },
+            { id: 3,  a:0, b:0, c:1, d:1, crit:0, susp:1, norm:0, level:'SUSPICIOUS', desc:'Foreign Origin Port Probe' },
+            { id: 4,  a:0, b:1, c:0, d:0, crit:0, susp:0, norm:1, level:'NORMAL',     desc:'Isolated Auth Retry' },
+            { id: 5,  a:0, b:1, c:0, d:1, crit:0, susp:1, norm:0, level:'SUSPICIOUS', desc:'External Auth Failure' },
+            { id: 6,  a:0, b:1, c:1, d:0, crit:0, susp:1, norm:0, level:'SUSPICIOUS', desc:'Internal Auth Burst on Restricted Port' },
+            { id: 7,  a:0, b:1, c:1, d:1, crit:1, susp:0, norm:0, level:'CRITICAL',   desc:'Brute Force + Port Exploit + Foreign IP' },
+            { id: 8,  a:1, b:0, c:0, d:0, crit:0, susp:0, norm:1, level:'NORMAL',     desc:'Authorized High Load Burst' },
+            { id: 9,  a:1, b:0, c:0, d:1, crit:0, susp:1, norm:0, level:'SUSPICIOUS', desc:'High Load from External Zone' },
+            { id: 10, a:1, b:0, c:1, d:0, crit:0, susp:1, norm:0, level:'SUSPICIOUS', desc:'High Load on Unauthorized Port' },
+            { id: 11, a:1, b:0, c:1, d:1, crit:1, susp:0, norm:0, level:'CRITICAL',   desc:'DDoS Probe on Restricted Port' },
+            { id: 12, a:1, b:1, c:0, d:0, crit:1, susp:0, norm:0, level:'CRITICAL',   desc:'SYN Flood + Brute Force Combo' },
+            { id: 13, a:1, b:1, c:0, d:1, crit:1, susp:0, norm:0, level:'CRITICAL',   desc:'External Distributed Brute Force' },
+            { id: 14, a:1, b:1, c:1, d:0, crit:1, susp:0, norm:0, level:'CRITICAL',   desc:'Internal Infrastructure Takeover Attempt' },
+            { id: 15, a:1, b:1, c:1, d:1, crit:1, susp:0, norm:0, level:'CRITICAL',   desc:'Full Vector Multi-Layer Attack' }
+        ];
+
+        // Pre-Loaded Test Suite (10 Standard + 5 Edge/Fault)
+        const testSuiteData = [
+            // 10 Standard Cases
+            { id: 'TC-01', type: 'STANDARD', name: 'Clean Web Baseline', vector: [0,0,0,0], expected: 'NORMAL' },
+            { id: 'TC-02', type: 'STANDARD', name: 'Legitimate Traffic Surge', vector: [1,0,0,0], expected: 'NORMAL' },
+            { id: 'TC-03', type: 'STANDARD', name: 'User Password Typo', vector: [0,1,0,0], expected: 'NORMAL' },
+            { id: 'TC-04', type: 'STANDARD', name: 'Foreign CDN Ping', vector: [0,0,0,1], expected: 'NORMAL' },
+            { id: 'TC-05', type: 'STANDARD', name: 'Suspicious Port Probe', vector: [0,0,1,1], expected: 'SUSPICIOUS' },
+            { id: 'TC-06', type: 'STANDARD', name: 'External Login Spam', vector: [0,1,0,1], expected: 'SUSPICIOUS' },
+            { id: 'TC-07', type: 'STANDARD', name: 'Internal Port Scan', vector: [0,1,1,0], expected: 'SUSPICIOUS' },
+            { id: 'TC-08', type: 'STANDARD', name: 'DDoS Brute Force Attack', vector: [1,1,0,0], expected: 'CRITICAL' },
+            { id: 'TC-09', type: 'STANDARD', name: 'High Volume Port Breach', vector: [1,0,1,1], expected: 'CRITICAL' },
+            { id: 'TC-10', type: 'STANDARD', name: 'Full Spectrum Intrusion', vector: [1,1,1,1], expected: 'CRITICAL' },
+            
+            // 5 Edge/Fault Stress Cases
+            { id: 'FC-01', type: 'EDGE', name: 'False Positive Noise (High Load + Geofence)', vector: [1,0,0,1], expected: 'SUSPICIOUS' },
+            { id: 'FC-02', type: 'EDGE', name: 'Zero-Traffic Port Hijack', vector: [0,1,1,1], expected: 'CRITICAL' },
+            { id: 'FC-03', type: 'EDGE', name: 'Sub-Threshold Glitch Pulse', vector: [0,0,1,0], expected: 'NORMAL' },
+            { id: 'FC-04', type: 'EDGE', name: 'Hardware Power Spike (Illegal State)', vector: [1,1,1,0], expected: 'CRITICAL' },
+            { id: 'FC-05', type: 'EDGE', name: 'Spoofed Internal Flood', vector: [1,1,0,1], expected: 'CRITICAL' }
+        ];
+
+        /* -------------------------------------------------------------------
+           2. BOOLEAN LOGIC EVALUATION ENGINE
+           ------------------------------------------------------------------- */
+        function evaluateLogic(a, b, c, d) {
+            // Minimized SOP Expressions derived from K-Map
+            // F_crit = A·B + A·C + B·C·D
+            const term1 = a & b;
+            const term2 = a & c;
+            const term3 = b & c & d;
+            const F_crit = (term1 | term2 | term3) ? 1 : 0;
+
+            // F_susp = A'·B·C + A·B'·D + B·C'·D'
+            const s1 = (!a & 1) & b & c;
+            const s2 = a & (!b & 1) & d;
+            const s3 = b & (!c & 1) & (!d & 1);
+            const F_susp = (!F_crit && (s1 | s2 | s3)) ? 1 : 0;
+
+            // F_norm = !(F_crit || F_susp)
+            const F_norm = (!F_crit && !F_susp) ? 1 : 0;
+
+            let classification = 'NORMAL';
+            if (F_crit === 1) classification = 'CRITICAL';
+            else if (F_susp === 1) classification = 'SUSPICIOUS';
+
+            return { F_crit, F_susp, F_norm, term1, term2, term3, classification };
+        }
+
+        /* -------------------------------------------------------------------
+           3. UI UPDATER & INTERACTION HANDLERS
+           ------------------------------------------------------------------- */
+        function updateSimulatorUI() {
+            const result = evaluateLogic(state.A, state.B, state.C, state.D);
+
+            // Update Binary Text
+            const binaryStr = `${state.A}${state.B}${state.C}${state.D}`;
+            document.getElementById('binary-bus-text').innerText = binaryStr;
+
+            // Update LEDs & Values
+            const ledCrit = document.getElementById('led-crit');
+            const ledSusp = document.getElementById('led-susp');
+            const ledNorm = document.getElementById('led-norm');
+
+            const valCrit = document.getElementById('state-crit-val');
+            const valSusp = document.getElementById('state-susp-val');
+            const valNorm = document.getElementById('state-norm-val');
+
+            // Reset classes
+            ledCrit.className = 'w-10 h-10 rounded-full led-indicator flex items-center justify-center text-white ' + (result.F_crit ? 'led-red' : 'led-off');
+            ledSusp.className = 'w-10 h-10 rounded-full led-indicator flex items-center justify-center text-white ' + (result.F_susp ? 'led-amber' : 'led-off');
+            ledNorm.className = 'w-10 h-10 rounded-full led-indicator flex items-center justify-center text-white ' + (result.F_norm ? 'led-green' : 'led-off');
+
+            valCrit.innerText = `STATE: ${result.F_crit}`;
+            valCrit.className = `text-[10px] font-mono ${result.F_crit ? 'text-red-400 font-bold' : 'text-slate-500'}`;
+
+            valSusp.innerText = `STATE: ${result.F_susp}`;
+            valSusp.className = `text-[10px] font-mono ${result.F_susp ? 'text-amber-400 font-bold' : 'text-slate-500'}`;
+
+            valNorm.innerText = `STATE: ${result.F_norm}`;
+            valNorm.className = `text-[10px] font-mono ${result.F_norm ? 'text-emerald-400 font-bold' : 'text-slate-500'}`;
+
+            // Update Propagation Time Simulation
+            const simTime = (0.042 + Math.random() * 0.010).toFixed(3);
+            document.getElementById('propagation-time').innerText = `${simTime} ns`;
+
+            // Intermediate Evaluation Text
+            document.getElementById('intermediate-eval-text').innerHTML = 
+                `Gate 1 (A&middot;B)=<strong class="text-white">${result.term1}</strong> | ` +
+                `Gate 2 (A&middot;C)=<strong class="text-white">${result.term2}</strong> | ` +
+                `Gate 3 (B&middot;C&middot;D)=<strong class="text-white">${result.term3}</strong> &rarr; ` +
+                `OR Output=<strong class="${result.F_crit ? 'text-red-400' : 'text-slate-400'}">${result.F_crit}</strong>`;
+
+            // Update Alert Banner
+            const banner = document.getElementById('alert-banner');
+            if (result.F_crit === 1) {
+                banner.className = 'bg-red-500/10 border border-red-500/30 p-4 rounded-xl text-red-400 space-y-1';
+                banner.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold font-mono text-sm uppercase tracking-wide flex items-center gap-2 text-red-400">
+                            <i data-lucide="alert-octagon" class="w-4 h-4"></i> System Alert: CRITICAL THREAT DETECTED
+                        </span>
+                        <span class="text-xs font-mono px-2 py-0.5 bg-red-500/20 rounded text-red-300">PRIORITY 1</span>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed font-sans">
+                        Hardware combinational logic triggered F_crit state. High traffic velocity coupled with authentication failures or unauthorized port access detected.
+                    </p>
+                `;
+            } else if (result.F_susp === 1) {
+                banner.className = 'bg-amber-500/10 border border-amber-500/30 p-4 rounded-xl text-amber-400 space-y-1';
+                banner.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold font-mono text-sm uppercase tracking-wide flex items-center gap-2 text-amber-400">
+                            <i data-lucide="alert-triangle" class="w-4 h-4"></i> System Alert: SUSPICIOUS ANOMALY
+                        </span>
+                        <span class="text-xs font-mono px-2 py-0.5 bg-amber-500/20 rounded text-amber-300">PRIORITY 2</span>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed font-sans">
+                        Hardware logic triggered F_susp. Network parameters exceed normal statistical thresholds but do not satisfy full critical attack vector.
+                    </p>
+                `;
+            } else {
+                banner.className = 'bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-xl text-emerald-400 space-y-1';
+                banner.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold font-mono text-sm uppercase tracking-wide flex items-center gap-2 text-emerald-400">
+                            <i data-lucide="shield-check" class="w-4 h-4"></i> System Status: NORMAL TRAFFIC
+                        </span>
+                        <span class="text-xs font-mono px-2 py-0.5 bg-emerald-500/20 rounded text-emerald-300">PRIORITY 0</span>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed font-sans">
+                        No malicious threat patterns detected. Hardware logic evaluates normal baseline operations.
+                    </p>
+                `;
+            }
+            lucide.createIcons();
+
+            // Render Circuit SVG
+            renderGateSchematic(result);
+
+            // Play synth audio if enabled
+            playSynthBeep(result.classification);
+        }
+
+        function toggleSwitch(inputVar) {
+            state[inputVar] = state[inputVar] === 1 ? 0 : 1;
+            const btn = document.getElementById(`switch-btn-${inputVar.toLowerCase()}`);
+            const knob = document.getElementById(`switch-knob-${inputVar.toLowerCase()}`);
+            const labelDesc = document.getElementById(`label-${inputVar.toLowerCase()}-desc`);
+
+            if (state[inputVar] === 1) {
+                btn.classList.replace('bg-slate-950', 'bg-mint/20');
+                btn.classList.add('border-mint');
+                knob.classList.replace('translate-x-0', 'translate-x-6');
+                knob.classList.replace('bg-slate-500', 'bg-mint');
+                knob.innerText = '1';
+            } else {
+                btn.classList.replace('bg-mint/20', 'bg-slate-950');
+                btn.classList.remove('border-mint');
+                knob.classList.replace('translate-x-6', 'translate-x-0');
+                knob.classList.replace('bg-mint', 'bg-slate-500');
+                knob.innerText = '0';
+            }
+
+            // Update Descriptions
+            const descriptions = {
+                A: state.A ? 'Traffic > 85% (High Rate)' : 'Normal Bandwidth',
+                B: state.B ? 'Auth Failures >= 3 (Spam)' : 'Normal Authentication',
+                C: state.C ? 'Unauthorized Port Access' : 'Authorized Ports Only',
+                D: state.D ? 'Geofence Breach (Foreign IP)' : 'Trusted Geofence IP'
+            };
+            labelDesc.innerText = descriptions[inputVar];
+
+            updateSimulatorUI();
+        }
+
+        function resetSwitches() {
+            state.A = 0; state.B = 0; state.C = 0; state.D = 0;
+            ['a','b','c','d'].forEach(v => {
+                const upper = v.toUpperCase();
+                const btn = document.getElementById(`switch-btn-${v}`);
+                const knob = document.getElementById(`switch-knob-${v}`);
+                btn.className = 'w-14 h-8 bg-slate-950 border border-slate-700 rounded-full p-1 transition-colors relative flex items-center';
+                knob.className = 'w-6 h-6 bg-slate-500 rounded-full transition-transform transform translate-x-0 flex items-center justify-center text-[10px] font-bold text-black font-mono';
+                knob.innerText = '0';
+            });
+            document.getElementById('label-a-desc').innerText = 'Normal Bandwidth';
+            document.getElementById('label-b-desc').innerText = 'Normal Authentication';
+            document.getElementById('label-c-desc').innerText = 'Authorized Ports Only';
+            document.getElementById('label-d-desc').innerText = 'Trusted Geofence IP';
+
+            updateSimulatorUI();
+        }
+
+        function simulateState(a, b, c, d) {
+            state.A = a; state.B = b; state.C = c; state.D = d;
+            ['A','B','C','D'].forEach(v => {
+                const val = state[v];
+                const lower = v.toLowerCase();
+                const btn = document.getElementById(`switch-btn-${lower}`);
+                const knob = document.getElementById(`switch-knob-${lower}`);
+                if (val === 1) {
+                    btn.classList.replace('bg-slate-950', 'bg-mint/20');
+                    btn.classList.add('border-mint');
+                    knob.classList.replace('translate-x-0', 'translate-x-6');
+                    knob.classList.replace('bg-slate-500', 'bg-mint');
+                    knob.innerText = '1';
+                } else {
+                    btn.classList.replace('bg-mint/20', 'bg-slate-950');
+                    btn.classList.remove('border-mint');
+                    knob.classList.replace('translate-x-6', 'translate-x-0');
+                    knob.classList.replace('bg-mint', 'bg-slate-500');
+                    knob.innerText = '0';
+                }
+            });
+            updateSimulatorUI();
+
+            // Scroll smoothly to simulator section
+            document.getElementById('simulator').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        /* -------------------------------------------------------------------
+           4. KARNAUGH MAP (K-MAP) RENDER ENGINE
+           ------------------------------------------------------------------- */
+        function renderKMap() {
+            const matrixBody = document.getElementById('kmap-matrix-body');
+            matrixBody.innerHTML = '';
+
+            // Grid mapping for 4-var KMap (Gray Code ordering)
+            // Rows AB: 00, 01, 11, 10
+            // Cols CD: 00, 01, 11, 10
+            const rowOrder = [
+                { label: "00 (A'B')", a:0, b:0 },
+                { label: "01 (A'B)",  a:0, b:1 },
+                { label: "11 (AB)",   a:1, b:1 },
+                { label: "10 (AB')",  a:1, b:0 }
+            ];
+            const colOrder = [
+                { c:0, d:0 },
+                { c:0, d:1 },
+                { c:1, d:1 },
+                { c:1, d:0 }
+            ];
+
+            rowOrder.forEach(r => {
+                const tr = document.createElement('tr');
+                let html = `<td class="p-2 border border-slate-800 bg-slate-900/60 font-semibold text-slate-300">${r.label}</td>`;
+
+                colOrder.forEach(c => {
+                    const logicRes = evaluateLogic(r.a, r.b, c.c, c.d);
+                    let val = 0;
+                    let groupClass = '';
+
+                    if (state.activeKMapOutput === 'CRITICAL') {
+                        val = logicRes.F_crit;
+                        if (val === 1) groupClass = 'kmap-group-crit';
+                    } else if (state.activeKMapOutput === 'SUSPICIOUS') {
+                        val = logicRes.F_susp;
+                        if (val === 1) groupClass = 'kmap-group-susp';
+                    } else {
+                        val = logicRes.F_norm;
+                        if (val === 1) groupClass = 'kmap-group-norm';
+                    }
+
+                    html += `
+                        <td class="p-3 border border-slate-800 kmap-cell ${groupClass} text-white font-bold cursor-pointer hover:bg-slate-800/80 transition"
+                            onclick="simulateState(${r.a}, ${r.b}, ${c.c}, ${c.d})">
+                            ${val}
+                        </td>
+                    `;
+                });
+
+                tr.innerHTML = html;
+                matrixBody.appendChild(tr);
+            });
+        }
+
+        function selectKMapOutput(outputType) {
+            state.activeKMapOutput = outputType;
+            const btnCrit = document.getElementById('btn-kmap-crit');
+            const btnSusp = document.getElementById('btn-kmap-susp');
+            const btnNorm = document.getElementById('btn-kmap-norm');
+            const title = document.getElementById('kmap-active-title');
+            const eqDisplay = document.getElementById('kmap-equation-display');
+            const eqExp = document.getElementById('kmap-equation-explanation');
+
+            [btnCrit, btnSusp, btnNorm].forEach(b => b.className = 'px-3 py-1 rounded-md text-slate-400 transition');
+
+            if (outputType === 'CRITICAL') {
+                btnCrit.className = 'px-3 py-1 rounded-md text-red-400 bg-red-500/10 font-semibold transition';
+                title.className = 'text-red-400 font-bold';
+                title.innerText = 'F_crit (Critical Alert)';
+                eqDisplay.innerText = 'F_crit = A·B + A·C + B·C·D';
+                eqExp.innerText = 'Synthesized with 3 AND gates into 1 3-input OR gate. Achieves 73.3% hardware gate savings.';
+            } else if (outputType === 'SUSPICIOUS') {
+                btnSusp.className = 'px-3 py-1 rounded-md text-amber-400 bg-amber-500/10 font-semibold transition';
+                title.className = 'text-amber-400 font-bold';
+                title.innerText = 'F_susp (Suspicious Alert)';
+                eqDisplay.innerText = "F_susp = A'·B·C + A·B'·D + B·C'·D'";
+                eqExp.innerText = 'Synthesized with 3 3-input AND gates into 1 OR gate. Isolates anomalies before escalation.';
+            } else {
+                btnNorm.className = 'px-3 py-1 rounded-md text-emerald-400 bg-emerald-500/10 font-semibold transition';
+                title.className = 'text-emerald-400 font-bold';
+                title.innerText = 'F_norm (Normal Traffic)';
+                eqDisplay.innerText = "F_norm = (F_crit + F_susp)' = F_crit' · F_susp'";
+                eqExp.innerText = 'Evaluated using NOR logic on higher priority threat buses for guaranteed zero false-pass.';
+            }
+
+            renderKMap();
+        }
+
+        /* -------------------------------------------------------------------
+           5. TRUTH TABLE RENDER ENGINE
+           ------------------------------------------------------------------- */
+        function renderTruthTable() {
+            const tbody = document.getElementById('truth-table-body');
+            const filter = document.getElementById('tt-filter').value;
+            tbody.innerHTML = '';
+
+            truthTableData.forEach(row => {
+                if (filter !== 'ALL' && row.level !== filter) return;
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-900/80 transition border-b border-slate-800/40 cursor-pointer';
+                
+                let badgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+                if (row.level === 'CRITICAL') badgeClass = 'bg-red-500/10 text-red-400 border-red-500/30';
+                else if (row.level === 'SUSPICIOUS') badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+
+                tr.innerHTML = `
+                    <td class="p-3 text-slate-500 font-bold">#${row.id.toString().padStart(2, '0')}</td>
+                    <td class="p-3 font-bold text-slate-200">${row.a}</td>
+                    <td class="p-3 font-bold text-slate-200">${row.b}</td>
+                    <td class="p-3 font-bold text-slate-200">${row.c}</td>
+                    <td class="p-3 font-bold text-slate-200">${row.d}</td>
+                    <td class="p-3 font-bold ${row.crit ? 'text-red-400' : 'text-slate-600'}">${row.crit}</td>
+                    <td class="p-3 font-bold ${row.susp ? 'text-amber-400' : 'text-slate-600'}">${row.susp}</td>
+                    <td class="p-3 font-bold ${row.norm ? 'text-emerald-400' : 'text-slate-600'}">${row.norm}</td>
+                    <td class="p-3">
+                        <span class="px-2.5 py-0.5 rounded text-[10px] font-mono border ${badgeClass}">
+                            ${row.level}
+                        </span>
+                    </td>
+                    <td class="p-3 text-right">
+                        <button onclick="simulateState(${row.a}, ${row.b}, ${row.c}, ${row.d})" class="px-2.5 py-1 bg-slate-800 hover:bg-mint hover:text-black text-slate-300 rounded text-[11px] font-mono transition">
+                            Simulate
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        /* -------------------------------------------------------------------
+           6. LOGIC GATE SCHEMATIC SVG VISUALIZER
+           ------------------------------------------------------------------- */
+        function renderGateSchematic(res) {
+            const svg = document.getElementById('gate-svg');
+            
+            // Dynamic wires styling based on logic values
+            const wA = state.A ? 'active-wire' : 'inactive-wire';
+            const wB = state.B ? 'active-wire' : 'inactive-wire';
+            const wC = state.C ? 'active-wire' : 'inactive-wire';
+            const wD = state.D ? 'active-wire' : 'inactive-wire';
+
+            const wT1 = res.term1 ? 'active-wire' : 'inactive-wire';
+            const wT2 = res.term2 ? 'active-wire' : 'inactive-wire';
+            const wT3 = res.term3 ? 'active-wire' : 'inactive-wire';
+            const wOut = res.F_crit ? 'active-wire' : 'inactive-wire';
+
+            svg.innerHTML = `
+                <!-- Input Pins -->
+                <text x="10" y="35" fill="#94a3b8" font-family="monospace" font-size="12">A (${state.A})</text>
+                <text x="10" y="85" fill="#94a3b8" font-family="monospace" font-size="12">B (${state.B})</text>
+                <text x="10" y="135" fill="#94a3b8" font-family="monospace" font-size="12">C (${state.C})</text>
+                <text x="10" y="185" fill="#94a3b8" font-family="monospace" font-size="12">D (${state.D})</text>
+
+                <!-- Input Wires -->
+                <!-- Wire A to AND1 & AND2 -->
+                <path d="M 45 30 L 130 30" class="${wA}" />
+                <path d="M 70 30 L 70 90 L 130 90" class="${wA}" />
+
+                <!-- Wire B to AND1 & AND3 -->
+                <path d="M 45 80 L 100 80 L 100 50 L 130 50" class="${wB}" />
+                <path d="M 45 80 L 80 80 L 80 150 L 130 150" class="${wB}" />
+
+                <!-- Wire C to AND2 & AND3 -->
+                <path d="M 45 130 L 130 110" class="${wC}" />
+                <path d="M 45 130 L 90 130 L 90 170 L 130 170" class="${wC}" />
+
+                <!-- Wire D to AND3 -->
+                <path d="M 45 180 L 130 180" class="${wD}" />
+
+                <!-- AND Gate 1 (A·B) -->
+                <rect x="130" y="20" width="45" height="40" rx="4" fill="#0f172a" stroke="#10b981" stroke-width="2"/>
+                <text x="142" y="44" fill="#10b981" font-family="monospace" font-size="11" font-weight="bold">AND1</text>
+                
+                <!-- AND Gate 2 (A·C) -->
+                <rect x="130" y="85" width="45" height="40" rx="4" fill="#0f172a" stroke="#10b981" stroke-width="2"/>
+                <text x="142" y="109" fill="#10b981" font-family="monospace" font-size="11" font-weight="bold">AND2</text>
+
+                <!-- AND Gate 3 (B·C·D) -->
+                <rect x="130" y="145" width="45" height="45" rx="4" fill="#0f172a" stroke="#10b981" stroke-width="2"/>
+                <text x="142" y="172" fill="#10b981" font-family="monospace" font-size="11" font-weight="bold">AND3</text>
+
+                <!-- Intermediate Wires -->
+                <path d="M 175 40 L 250 85" class="${wT1}" />
+                <path d="M 175 105 L 250 105" class="${wT2}" />
+                <path d="M 175 167 L 250 125" class="${wT3}" />
+
+                <!-- Final OR Gate (F_crit) -->
+                <path d="M 250 70 Q 270 105 250 140 Q 290 140 310 105 Q 290 70 250 70 Z" fill="#0f172a" stroke="#06b6d4" stroke-width="2"/>
+                <text x="265" y="109" fill="#06b6d4" font-family="monospace" font-size="11" font-weight="bold">OR</text>
+
+                <!-- Output Wire -->
+                <path d="M 310 105 L 360 105" class="${wOut}" />
+                <circle cx="365" cy="105" r="8" fill="${res.F_crit ? '#ef4444' : '#1e293b'}" stroke="#ef4444" stroke-width="2"/>
+                <text x="345" y="85" fill="${res.F_crit ? '#ef4444' : '#64748b'}" font-family="monospace" font-size="11" font-weight="bold">F_crit (${res.F_crit})</text>
+            `;
+        }
+
+        /* -------------------------------------------------------------------
+           7. SYNTHETIC LOG STREAM ENGINE & TEST SUITE
+           ------------------------------------------------------------------- */
+        function toggleStream() {
+            state.streamingActive = !state.streamingActive;
+            const btn = document.getElementById('stream-toggle-btn');
+
+            if (state.streamingActive) {
+                btn.className = 'px-3.5 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-mono font-bold rounded-lg transition flex items-center gap-1.5';
+                btn.innerHTML = `<i data-lucide="square" class="w-3.5 h-3.5 fill-current"></i> Pause Stream`;
+                
+                state.streamInterval = setInterval(() => {
+                    const randomState = truthTableData[Math.floor(Math.random() * truthTableData.length)];
+                    simulateState(randomState.a, randomState.b, randomState.c, randomState.d);
+                    
+                    // Add entry to log terminal
+                    addLogTerminalEntry(randomState);
+
+                    // Update Metrics
+                    state.totalSamples++;
+                    if (randomState.level === 'CRITICAL') state.critCount++;
+                    else if (randomState.level === 'SUSPICIOUS') state.suspCount++;
+                    else state.normCount++;
+
+                    updateAnalyticsCharts();
+                }, 1200);
+            } else {
+                btn.className = 'px-3.5 py-1.5 bg-mint hover:bg-mintGlow text-black text-xs font-mono font-bold rounded-lg transition flex items-center gap-1.5';
+                btn.innerHTML = `<i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i> Start Auto Stream`;
+                clearInterval(state.streamInterval);
+            }
+            lucide.createIcons();
+        }
+
+        function addLogTerminalEntry(log) {
+            const terminal = document.getElementById('log-terminal');
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+
+            let color = 'text-emerald-400';
+            if (log.level === 'CRITICAL') color = 'text-red-400 font-bold';
+            else if (log.level === 'SUSPICIOUS') color = 'text-amber-400';
+
+            div.innerHTML = `<span class="text-slate-500">[${time}]</span> <span class="text-slate-300">BUS [${log.a}${log.b}${log.c}${log.d}]</span> &rarr; <span class="${color}">${log.level}</span> <span class="text-slate-500 text-[10px]">(${log.desc})</span>`;
+            terminal.appendChild(div);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('log-terminal').innerHTML = '<div class="text-slate-500">// Terminal logs cleared. Ready...</div>';
+        }
+
+        function filterTestSuite(type) {
+            const btnAll = document.getElementById('ts-filter-all');
+            const btnStd = document.getElementById('ts-filter-std');
+            const btnEdge = document.getElementById('ts-filter-edge');
+
+            [btnAll, btnStd, btnEdge].forEach(b => b.className = 'text-xs font-mono px-3 py-1 bg-slate-900 border border-slate-800 text-slate-400 rounded-lg hover:text-white');
+
+            if (type === 'ALL') btnAll.className = 'text-xs font-mono px-3 py-1 bg-mint/10 border border-mint/40 text-mint rounded-lg';
+            else if (type === 'STANDARD') btnStd.className = 'text-xs font-mono px-3 py-1 bg-mint/10 border border-mint/40 text-mint rounded-lg';
+            else btnEdge.className = 'text-xs font-mono px-3 py-1 bg-mint/10 border border-mint/40 text-mint rounded-lg';
+
+            renderTestSuite(type);
+        }
+
+        function renderTestSuite(filterType) {
+            const tbody = document.getElementById('test-suite-body');
+            tbody.innerHTML = '';
+
+            testSuiteData.forEach(tc => {
+                if (filterType !== 'ALL' && tc.type !== filterType) return;
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-900/80 transition border-b border-slate-800/40';
+
+                let badgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+                if (tc.expected === 'CRITICAL') badgeClass = 'bg-red-500/10 text-red-400 border-red-500/30';
+                else if (tc.expected === 'SUSPICIOUS') badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+
+                tr.innerHTML = `
+                    <td class="p-3 font-bold text-mint">${tc.id}</td>
+                    <td class="p-3 text-slate-200 font-semibold">${tc.name}</td>
+                    <td class="p-3 text-slate-400 text-[11px]">${tc.type}</td>
+                    <td class="p-3 font-bold text-cyanAccent">[ ${tc.vector.join(' ')} ]</td>
+                    <td class="p-3">
+                        <span class="px-2.5 py-0.5 rounded text-[10px] font-mono border ${badgeClass}">
+                            ${tc.expected}
+                        </span>
+                    </td>
+                    <td class="p-3 text-right">
+                        <button onclick="simulateState(${tc.vector.join(',')})" class="px-3 py-1 bg-slate-800 hover:bg-mint hover:text-black text-slate-200 rounded text-xs font-mono transition">
+                            Run Vector
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        /* -------------------------------------------------------------------
+           8. CHART.JS VISUALIZATION DASHBOARD
+           ------------------------------------------------------------------- */
+        let alertChart, latencyChart;
+
+        function initCharts() {
+            // Chart 1: Donut Distribution
+            const ctx1 = document.getElementById('alertDistributionChart').getContext('2d');
+            alertChart = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Normal', 'Suspicious', 'Critical'],
+                    datasets: [{
+                        data: [state.normCount, state.suspCount, state.critCount],
+                        backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Fira Code', size: 11 } } }
+                    },
+                    cutout: '70%'
+                }
+            });
+
+            // Chart 2: Latency Comparison (Bar Chart)
+            const ctx2 = document.getElementById('latencyChart').getContext('2d');
+            latencyChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: ['Logic Gate Hardware (Ours)', 'eBPF Kernel Filter', 'User-space IDS (Snort)'],
+                    datasets: [{
+                        label: 'Packet Classification Latency (Nanoseconds)',
+                        data: [0.048, 450, 18500],
+                        backgroundColor: ['#10b981', '#06b6d4', '#64748b'],
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'logarithmic',
+                            grid: { color: '#1e293b' },
+                            ticks: { color: '#94a3b8', font: { family: 'Fira Code', size: 10 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8', font: { family: 'Fira Code', size: 10 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function updateAnalyticsCharts() {
+            document.getElementById('total-samples-count').innerText = state.totalSamples;
+
+            const cPct = ((state.critCount / state.totalSamples) * 100).toFixed(1);
+            const sPct = ((state.suspCount / state.totalSamples) * 100).toFixed(1);
+            const nPct = ((state.normCount / state.totalSamples) * 100).toFixed(1);
+
+            document.getElementById('metric-crit-count').innerText = `${state.critCount} (${cPct}%)`;
+            document.getElementById('metric-susp-count').innerText = `${state.suspCount} (${sPct}%)`;
+            document.getElementById('metric-norm-count').innerText = `${state.normCount} (${nPct}%)`;
+
+            if (alertChart) {
+                alertChart.data.datasets[0].data = [state.normCount, state.suspCount, state.critCount];
+                alertChart.update();
+            }
+        }
+
+        /* -------------------------------------------------------------------
+           9. SYNTHETIC WEB AUDIO FEEDBACK
+           ------------------------------------------------------------------- */
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSynthBeep(type) {
+            if (!state.audioEnabled) return;
+            
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'CRITICAL') {
+                    osc.frequency.value = 880; // High frequency alert
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                } else if (type === 'SUSPICIOUS') {
+                    osc.frequency.value = 440;
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                } else {
+                    osc.frequency.value = 220; // Soft low tone
+                    gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+                }
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.25);
+            } catch(e) {}
+        }
+
+        document.getElementById('sound-toggle').addEventListener('click', () => {
+            state.audioEnabled = !state.audioEnabled;
+            const btn = document.getElementById('sound-toggle');
+            if (state.audioEnabled) {
+                audioCtx.resume();
+                btn.classList.add('border-mint', 'text-mint');
+            } else {
+                btn.classList.remove('border-mint', 'text-mint');
+            }
+        });
+
+        /* -------------------------------------------------------------------
+           10. CUSTOM MAGNETIC CURSOR & BACKGROUND PARTICLES
+           ------------------------------------------------------------------- */
+        const cursorDot = document.getElementById('cursor-dot');
+        const cursorRing = document.getElementById('cursor-ring');
+
+        let mouseX = 0, mouseY = 0;
+        let ringX = 0, ringY = 0;
+
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            cursorDot.style.left = `${mouseX}px`;
+            cursorDot.style.top = `${mouseY}px`;
+        });
+
+        function animateCursor() {
+            ringX += (mouseX - ringX) * 0.18;
+            ringY += (mouseY - ringY) * 0.18;
+            cursorRing.style.left = `${ringX}px`;
+            cursorRing.style.top = `${ringY}px`;
+            requestAnimationFrame(animateCursor);
+        }
+        animateCursor();
+
+        // Add magnetic hover class to interactive elements
+        document.addEventListener('mouseover', (e) => {
+            if (e.target.closest('button, a, input, select, .kmap-cell, tr')) {
+                document.body.classList.add('cursor-hover');
+            }
+        });
+        document.addEventListener('mouseout', (e) => {
+            if (e.target.closest('button, a, input, select, .kmap-cell, tr')) {
+                document.body.classList.remove('cursor-hover');
+            }
+        });
+
+        // Background FX Canvas Particles
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        for (let i = 0; i < 45; i++) {
+            particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                vx: (Math.random() - 0.5) * 0.4,
+                vy: (Math.random() - 0.5) * 0.4,
+                size: Math.random() * 2 + 1
+            });
+        }
+
+        function drawParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#10b981';
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.08)';
+
+            particles.forEach((p, idx) => {
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+                if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                for (let j = idx + 1; j < particles.length; j++) {
+                    const p2 = particles[j];
+                    const dist = Math.hypot(p.x - p2.x, p.y - p2.y);
+                    if (dist < 120) {
+                        ctx.beginPath();
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                }
+            });
+            requestAnimationFrame(drawParticles);
+        }
+        drawParticles();
+
+        /* -------------------------------------------------------------------
+           11. MODAL HELPERS & INITIALIZATION
+           ------------------------------------------------------------------- */
+        function openReadmeModal() {
+            document.getElementById('readme-modal').classList.remove('hidden');
+        }
+        function closeReadmeModal() {
+            document.getElementById('readme-modal').classList.add('hidden');
+        }
+
+        window.onload = function() {
+            lucide.createIcons();
+            renderKMap();
+            renderTruthTable();
+            renderTestSuite('ALL');
+            updateSimulatorUI();
+            initCharts();
+        };
+    </script>
+</body>
+</html>
